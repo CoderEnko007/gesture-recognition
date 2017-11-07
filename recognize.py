@@ -10,29 +10,31 @@ VIDEO_MODE = 0x01
 IMAGE_MODE = 0x02
 
 def detectHand(o, f, mode):
+    startA = o.copy()
+    endA = o.copy()
+    farA = o.copy()
     hand = o.copy()
     SD = SkinDetector(f)
     skinCnts = SD.detectSkin()
     # print(type(skinCnts))
     for (c, area) in skinCnts:
-        cv2.drawContours(o, [c], -1, (0, 255, 0), 2)
-        SD.getAreaRatio(c, hand)
-        SD.getPeriAreaRatio(c)
-        SD.getAspectRatio(c)
+        # cv2.drawContours(o, [c], -1, (0, 255, 0), 2)
+        # SD.getAreaRatio(c)
+        # SD.getPeriAreaRatio(c)
 
         # x, y, w, h = cv2.boundingRect(c)
         # rect = np.array([[x, y], [x+w, y], [x+w, y+h], [x, y+h]])
         # cv2.drawContours(hand, [rect], -1, (128, 0, 128), 2)
 
-        hull = cv2.convexHull(c)
-        cv2.drawContours(o, [hull], -1, (255, 0, 0), 2)
-        hull_area = cv2.contourArea(hull)
-        print("len(hull)=%s" % len(hull))
-        hullRatio = area / hull_area
-        print("hullRatio=%s" % hullRatio)
+        # hull = cv2.convexHull(c)
+        # cv2.drawContours(o, [hull], -1, (255, 0, 0), 2)
+        # hull_area = cv2.contourArea(hull)
+        # print("len(hull)=%s" % len(hull))
+        # hullRatio = area / hull_area
+        # print("hullRatio=%s" % hullRatio)
 
         approx = SD.getapproximation(c)
-        cv2.drawContours(o, [approx], -1, (0, 255, 255), 2)
+        # cv2.drawContours(o, [approx], -1, (0, 255, 255), 2)
         hull = cv2.convexHull(approx)
         cv2.drawContours(hand, [hull], -1, (0, 255, 0), 2)
         cv2.drawContours(hand, [approx], -1, (0, 255, 255), 2)
@@ -41,35 +43,48 @@ def detectHand(o, f, mode):
         cX = int(M['m10'] / M['m00'])
         cY = int(M['m01'] / M['m00'])
         center = (cX, cY)
-        cv2.circle(hand, center, 5, (255, 0, 255), -1)
 
         hull = cv2.convexHull(approx, returnPoints=False)
         defects = cv2.convexityDefects(approx, hull)
         fingerPoint = []
         if defects is None:
             continue
+        print(defects)
         for i in range(defects.shape[0]):
             s, e, f, d = defects[i, 0]
             start = tuple(approx[s][0])
             end = tuple(approx[e][0])
             far = tuple(approx[f][0])
             # cv2.circle(hand, start, 5, (255, 0, 0), -1)
-            # cv2.circle(hand, end, 5, (0, 255, 0), -1)
+            cv2.line(hand, start, end, (255, 255, 255), 2)
+            cv2.circle(hand, end, 5, (0, 255, 0), -1)
             cv2.circle(hand, far, 5, (0, 0, 255), -1)
+            cv2.circle(startA, start, 5, (0, 255, 0), 3)
+            cv2.circle(endA, end, 5, (255, 0, 0), 3)
+            cv2.circle(farA, far, 5, (0, 0, 255), 3)
+            cv2.putText(startA, "%d" % i, (start[0]-30, start[1]-20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+            cv2.putText(endA, "%d" % i, (end[0]-30, end[1]-20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+            cv2.putText(farA, "%d" % i, (far[0]-30, far[1]-20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
             fingerPoint.append(start)
             fingerPoint.append(end)
         fingerPoint = sorted(set(fingerPoint), key=fingerPoint.index)
         validFinger = fingerPoint[:]
-        for f in fingerPoint:
+        fingerIndex = 1
+        for i, f in enumerate(fingerPoint):
             if f[1] < center[1]:
-                cv2.circle(hand, f, 30, (255, 0, 0), 5)
-                cv2.line(hand, f, center, (128, 128, 0), 2)
+                cv2.circle(hand, f, 10, (255, 0, 0), 5)
+                cv2.putText(hand, "%d" % fingerIndex, (f[0]-30, f[1]-30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+                cv2.line(hand, f, center, (255, 255, 125), 3)
+                fingerIndex += 1
             else:
                 validFinger.remove(f)
         fingerNum = len(validFinger)
+        cv2.circle(hand, center, 5, (255, 0, 255), 3)
         cv2.putText(hand, "%d finger" % fingerNum, (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
-        cv2.imshow("test", imutils.resize(hand, width=min(600, image.shape[1])))
-        # cv2.imshow("area", imutils.resize(orig, width=min(600, image.shape[1])))
+        cv2.imshow("hand", imutils.resize(hand, width=min(500, image.shape[1])))
+        cv2.imshow("start", imutils.resize(startA, width=min(500, image.shape[1])))
+        cv2.imshow("end", imutils.resize(endA, width=min(500, image.shape[1])))
+        cv2.imshow("far", imutils.resize(farA, width=min(500, image.shape[1])))
         if mode is IMAGE_MODE:
             cv2.waitKey(0)
 
@@ -89,7 +104,6 @@ if args["video"]:
         camera = cv2.VideoCapture(args["video"])
     while True:
         ret, image = camera.read()
-        cv2.imwrite("image.jpg", image)
         if not ret:
             break
         frame = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)

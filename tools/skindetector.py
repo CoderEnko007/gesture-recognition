@@ -15,6 +15,7 @@ class SkinDetector:
         mask = cv2.inRange(self.image, lowerB, upperB)
         mask = cv2.dilate(mask, None, iterations=1)
         mask = cv2.erode(mask, None, iterations=1)
+        # mask = cv2.medianBlur(mask, 3)
         cv2.imshow("mask", mask)
 
         cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
@@ -62,9 +63,10 @@ class SkinDetector:
         else:
             width = dxy2
             height = dxy1
-        ratio = height / width
-        print("aspect ratio=%s" % ratio)
-        return ratio
+        result = height / width
+        peri = 2*height + 2*width
+        print("aspect ratio=%s" % result)
+        return peri, result
 
     def getapproximation(self, cnt):
         epsilon = 0.025 * cv2.arcLength(cnt, True)
