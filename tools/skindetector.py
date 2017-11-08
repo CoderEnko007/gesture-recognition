@@ -1,31 +1,50 @@
 import numpy as np
-import imutils
 import cv2
+import os
 
-lowerB = (0, 138, 100)
-upperB = (255, 170, 120)
+lowerB = (0, 140, 100)
+upperB = (255, 170, 129)
+FACE_DETECTOR_PATH = "{base_path}\\cascades\\haarcascade_frontalface_default.xml".format(
+    base_path=os.path.abspath(os.path.dirname(__file__)))
+
 
 class SkinDetector:
     def __init__(self, image):
         self.image = image
 
-    def detectSkin(self):
+    def getImage(self):
+        return self.image
+
+    def detectFace(self):
+        image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        # print(FACE_DETECTOR_PATH)
+        detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+        rect = detector.detectMultiScale(image, scaleFactor=1.1, minNeighbors=5,
+                                          minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE)
+        rect = [(int(x), int(y), int(x + w), int(y + h)) for (x, y, w, h) in rect]
+        return rect
+
+    def detectSkin(self, frame, mask=None):
         skinCnts = []
         area = []
-        mask = cv2.inRange(self.image, lowerB, upperB)
-        mask = cv2.dilate(mask, None, iterations=1)
-        mask = cv2.erode(mask, None, iterations=1)
-        # mask = cv2.medianBlur(mask, 3)
-        cv2.imshow("mask", mask)
+        skin = cv2.inRange(frame, lowerB, upperB)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+        skin = cv2.dilate(skin, kernel, iterations=1)
+        skin = cv2.erode(skin, kernel, iterations=1)
+        skin = cv2.GaussianBlur(skin, (1, 1), 0)
+        cv2.imshow("skin mask", skin)
+        if mask is not None:
+            skin = cv2.bitwise_and(skin, skin, mask=mask)
 
-        cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
-        # print(len(cnts))
+        cnts = cv2.findContours(skin.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
         for c in cnts:
             a = cv2.contourArea(c)
             if a > 5000:
                 skinCnts.append(c)
                 area.append(a)
-        return zip(skinCnts, area)
+        skinCnts = sorted(skinCnts, key=cv2.contourArea, reverse=True)
+        # return list(zip(skinCnts, area))
+        return skinCnts
 
     def getAreaRatio(self, cnt, image=None):
         area = cv2.contourArea(cnt)
